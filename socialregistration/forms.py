@@ -1,11 +1,16 @@
 from django import forms
 from django.utils.translation import gettext as _
 
-from django.contrib.auth.models import User
+try:
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+except ImportError:
+    from django.contrib.auth.models import User
+
 
 class UserForm(forms.Form):
     """
-    Default user creation form. Can be altered with the 
+    Default user creation form. Can be altered with the
     `SOCIALREGISTRATION_SETUP_FORM` setting.
     """
     username = forms.RegexField(r'^\w+$', max_length=32)

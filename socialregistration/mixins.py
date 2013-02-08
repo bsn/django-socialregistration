@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib.auth import authenticate, login
-from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.utils import importlib
 from django.utils.translation import ugettext_lazy as _
@@ -9,8 +8,15 @@ from socialregistration import signals
 from socialregistration.settings import SESSION_KEY
 import urlparse
 
+try:
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+except ImportError:
+    from django.contrib.auth.models import User
+
 ERROR_VIEW = getattr(settings, 'SOCIALREGISTRATION_ERROR_VIEW_FUNCTION',
     None)
+
 
 class CommonMixin(TemplateResponseMixin):
     """

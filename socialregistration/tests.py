@@ -1,6 +1,5 @@
 from django import template
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 from oauth2 import Client
@@ -8,6 +7,13 @@ from socialregistration.signals import login, connect
 import mock
 import urllib
 import urlparse
+
+try:
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+except ImportError:
+    from django.contrib.auth.models import User
+
 
 class TemplateTagTest(object):
     def get_tag(self):
