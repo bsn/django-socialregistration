@@ -1,5 +1,5 @@
 {% load url from future %}
-<form action="{% url 'socialregistration:google:redirect' %}" method="post">
+<form class="connect-button" action="{% url 'socialregistration:google:redirect' %}" method="post">
     {% csrf_token %}
     {% if next %}
         <input type="hidden" name="next" value="{{ next }}" />
