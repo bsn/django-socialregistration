@@ -12,10 +12,14 @@ import logging
 import socket
 
 
-
 SEAMLESS_SETUP = getattr(settings, 'SOCIALREGISTRATION_SEAMLESS_SETUP', False)
 
+GENERATE_USERNAME = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME', False)
+
 USER_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_USER_FUNCTION',
+    'socialregistration.utils.generate_user')
+
+USERNAME_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION',
     'socialregistration.utils.generate_username')
 
 FORM_CLASS = getattr(settings, 'SOCIALREGISTRATION_SETUP_FORM',
@@ -51,7 +55,10 @@ class Setup(SocialRegistration, View):
         The function have to return tuple (user, profile)
         The function is controlled with ``SOCIALREGISTRATION_USER_FUNCTION``.
         """
-        return self.import_attribute(USER_FUNCTION)
+        if SEAMLESS_SETUP:
+            return self.import_attribute(USER_FUNCTION)
+        if GENERATE_USERNAME:
+            return self.import_attribute(USERNAME_FUNCTION)
     
     def get_initial_data(self, request, user, profile, client):
         """
@@ -96,7 +103,11 @@ class Setup(SocialRegistration, View):
         """
         user_func = self.get_user_function()
         
-        user, profile = user_func(request, user, profile, client)
+        if SEAMLESS_SETUP:
+            user, profile = user_func(request, user, profile, client)
+        if GENERATE_USERNAME:
+            user.username = user_func(user, profile, client)
+
         if not user.password:
             user.set_unusable_password()
             user.save()
@@ -131,7 +142,7 @@ class Setup(SocialRegistration, View):
             return self.error_to_response(request, dict(
                 error=_("Social profile is missing from your session.")))
          
-        if SEAMLESS_SETUP:
+        if SEAMLESS_SETUP or GENERATE_USERNAME:
             return self.generate_user_and_redirect(request, user, profile, client)
             
         form = self.get_form()(initial=self.get_initial_data(request, user, profile, client))
