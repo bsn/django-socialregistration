@@ -13,9 +13,9 @@ import socket
 
 
 
-GENERATE_USERNAME = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME', False)
+SEAMLESS_SETUP = getattr(settings, 'SOCIALREGISTRATION_SEAMLESS_SETUP', False)
 
-USERNAME_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION',
+USER_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_USER_FUNCTION',
     'socialregistration.utils.generate_username')
 
 FORM_CLASS = getattr(settings, 'SOCIALREGISTRATION_SETUP_FORM',
@@ -45,12 +45,13 @@ class Setup(SocialRegistration, View):
         """
         return self.import_attribute(FORM_CLASS)
     
-    def get_username_function(self):
+    def get_user_function(self):
         """
-        Return a function that can generate a username. The function
-        is controlled with ``SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION``.
+        Return a function that can fill necessary fields in User model.
+        The function have to return tuple (user, profile)
+        The function is controlled with ``SOCIALREGISTRATION_USER_FUNCTION``.
         """
-        return self.import_attribute(USERNAME_FUNCTION)
+        return self.import_attribute(USER_FUNCTION)
     
     def get_initial_data(self, request, user, profile, client):
         """
@@ -82,10 +83,10 @@ class Setup(SocialRegistration, View):
             return func(request, user, profile, client)
         return {}
 
-    def generate_username_and_redirect(self, request, user, profile, client):
+    def generate_user_and_redirect(self, request, user, profile, client):
         """
-        Generate a username and then redirect the user to the correct place.
-        This method is called when ``SOCIALREGISTRATION_GENERATE_USERNAME`` 
+        Fill in user attributes and then redirect the user to the correct place.
+        This method is called when ``SOCIALREGISTRATION_SEAMLESS_SETUP`` 
         is set. 
 
         :param request: The current request object
@@ -93,11 +94,12 @@ class Setup(SocialRegistration, View):
         :param profile: The unsaved profile object
         :param client: The API client
         """
-        func = self.get_username_function()
+        user_func = self.get_user_function()
         
-        user.username = func(user, profile, client)
-        user.set_unusable_password()
-        user.save()
+        user, profile = user_func(request, user, profile, client)
+        if not user.password:
+            user.set_unusable_password()
+            user.save()
         
         profile.user = user
         profile.save()
@@ -129,8 +131,8 @@ class Setup(SocialRegistration, View):
             return self.error_to_response(request, dict(
                 error=_("Social profile is missing from your session.")))
          
-        if GENERATE_USERNAME:
-            return self.generate_username_and_redirect(request, user, profile, client)
+        if SEAMLESS_SETUP:
+            return self.generate_user_and_redirect(request, user, profile, client)
             
         form = self.get_form()(initial=self.get_initial_data(request, user, profile, client))
         
