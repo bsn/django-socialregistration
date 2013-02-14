@@ -36,6 +36,7 @@ ALLOW_OPENID_SIGNUPS = getattr(settings, 'SOCIALREGISTRATION_ALLOW_OPENID_SIGNUP
 
 logger = logging.getLogger(__name__)
 
+
 class Setup(SocialRegistration, View):
     """
     Setup view to create new Django users from third party APIs.
@@ -48,18 +49,24 @@ class Setup(SocialRegistration, View):
         with ``SOCIALREGISTRATION_SETUP_FORM``.
         """
         return self.import_attribute(FORM_CLASS)
-    
+
     def get_user_function(self):
         """
-        Return a function that can fill necessary fields in User model.
-        The function have to return tuple (user, profile)
-        The function is controlled with ``SOCIALREGISTRATION_USER_FUNCTION``.
+        Dispatcher of type of user function.
+
+        For SEAMLESS_SETUP it returns a function that can fill necessary fields
+        in User model. The function have to return tuple (user, profile)
+        It is controlled with ``SOCIALREGISTRATION_USER_FUNCTION``.
+
+        For GENERATE_USERNAME it returns a function that produce unique
+        username for the new user. The function have to return string - username
+        It is controlled with ``SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION``.
         """
         if SEAMLESS_SETUP:
             return self.import_attribute(USER_FUNCTION)
         if GENERATE_USERNAME:
             return self.import_attribute(USERNAME_FUNCTION)
-    
+
     def get_initial_data(self, request, user, profile, client):
         """
         Return initial data for the setup form. The function can be
@@ -94,7 +101,7 @@ class Setup(SocialRegistration, View):
         """
         Fill in user attributes and then redirect the user to the correct place.
         This method is called when ``SOCIALREGISTRATION_SEAMLESS_SETUP`` 
-        is set. 
+        is set.
 
         :param request: The current request object
         :param user: The unsaved user object
