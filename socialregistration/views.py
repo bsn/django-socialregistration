@@ -12,8 +12,12 @@ import logging
 import socket
 
 
+SEAMLESS_SETUP = getattr(settings, 'SOCIALREGISTRATION_SEAMLESS_SETUP', False)
 
 GENERATE_USERNAME = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME', False)
+
+USER_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_USER_FUNCTION',
+    'socialregistration.utils.generate_user')
 
 USERNAME_FUNCTION = getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION',
     'socialregistration.utils.generate_username')
@@ -32,6 +36,7 @@ ALLOW_OPENID_SIGNUPS = getattr(settings, 'SOCIALREGISTRATION_ALLOW_OPENID_SIGNUP
 
 logger = logging.getLogger(__name__)
 
+
 class Setup(SocialRegistration, View):
     """
     Setup view to create new Django users from third party APIs.
@@ -44,14 +49,27 @@ class Setup(SocialRegistration, View):
         with ``SOCIALREGISTRATION_SETUP_FORM``.
         """
         return self.import_attribute(FORM_CLASS)
-    
-    def get_username_function(self):
+
+    def get_user_function(self):
         """
-        Return a function that can generate a username. The function
-        is controlled with ``SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION``.
+        Dispatcher of type of user function.
+
+        For SEAMLESS_SETUP it returns a function that can fill necessary fields
+        in User model. The function have to return tuple (user, profile)
+        It is controlled with ``SOCIALREGISTRATION_USER_FUNCTION``.
+
+        For GENERATE_USERNAME it returns a function that produce unique
+        username for the new user. The function have to return string - username
+        It is controlled with ``SOCIALREGISTRATION_GENERATE_USERNAME_FUNCTION``.
         """
-        return self.import_attribute(USERNAME_FUNCTION)
-    
+        if SEAMLESS_SETUP:
+            return self.import_attribute(USER_FUNCTION)
+        if GENERATE_USERNAME:
+            return self.import_attribute(USERNAME_FUNCTION)
+
+    # DEPRECATED, kept for backward compatibility
+    get_username_function = get_user_function
+
     def get_initial_data(self, request, user, profile, client):
         """
         Return initial data for the setup form. The function can be
@@ -82,23 +100,28 @@ class Setup(SocialRegistration, View):
             return func(request, user, profile, client)
         return {}
 
-    def generate_username_and_redirect(self, request, user, profile, client):
+    def generate_user_and_redirect(self, request, user, profile, client):
         """
-        Generate a username and then redirect the user to the correct place.
-        This method is called when ``SOCIALREGISTRATION_GENERATE_USERNAME`` 
-        is set. 
+        Fill in user attributes and then redirect the user to the correct place.
+        This method is called when ``SOCIALREGISTRATION_SEAMLESS_SETUP``
+        is set.
 
         :param request: The current request object
         :param user: The unsaved user object
         :param profile: The unsaved profile object
         :param client: The API client
         """
-        func = self.get_username_function()
-        
-        user.username = func(user, profile, client)
-        user.set_unusable_password()
-        user.save()
-        
+        user_func = self.get_user_function()
+
+        if SEAMLESS_SETUP:
+            user, profile = user_func(request, user, profile, client)
+        if GENERATE_USERNAME:
+            user.username = user_func(user, profile, client)
+
+        if not user.password:
+            user.set_unusable_password()
+            user.save()
+
         profile.user = user
         profile.save()
         
@@ -113,7 +136,10 @@ class Setup(SocialRegistration, View):
         self.delete_session_data(request)
         
         return HttpResponseRedirect(self.get_next(request))
-        
+
+    # DEPRECATED, kept for backward compatibility
+    generate_username_and_redirect = generate_user_and_redirect
+
     def get(self, request):
         """
         When signing a new user up - either display a setup form, or
@@ -129,8 +155,8 @@ class Setup(SocialRegistration, View):
             return self.error_to_response(request, dict(
                 error=_("Social profile is missing from your session.")))
          
-        if GENERATE_USERNAME:
-            return self.generate_username_and_redirect(request, user, profile, client)
+        if SEAMLESS_SETUP or GENERATE_USERNAME:
+            return self.generate_user_and_redirect(request, user, profile, client)
             
         form = self.get_form()(initial=self.get_initial_data(request, user, profile, client))
         
