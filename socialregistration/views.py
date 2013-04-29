@@ -67,6 +67,9 @@ class Setup(SocialRegistration, View):
         if GENERATE_USERNAME:
             return self.import_attribute(USERNAME_FUNCTION)
 
+    # DEPRECATED, kept for backward compatibility
+    get_username_function = get_user_function
+
     def get_initial_data(self, request, user, profile, client):
         """
         Return initial data for the setup form. The function can be
@@ -100,7 +103,7 @@ class Setup(SocialRegistration, View):
     def generate_user_and_redirect(self, request, user, profile, client):
         """
         Fill in user attributes and then redirect the user to the correct place.
-        This method is called when ``SOCIALREGISTRATION_SEAMLESS_SETUP`` 
+        This method is called when ``SOCIALREGISTRATION_SEAMLESS_SETUP``
         is set.
 
         :param request: The current request object
@@ -109,7 +112,7 @@ class Setup(SocialRegistration, View):
         :param client: The API client
         """
         user_func = self.get_user_function()
-        
+
         if SEAMLESS_SETUP:
             user, profile = user_func(request, user, profile, client)
         if GENERATE_USERNAME:
@@ -118,7 +121,6 @@ class Setup(SocialRegistration, View):
         if not user.password:
             user.set_unusable_password()
             user.save()
-        
         profile.user = user
         profile.save()
         
@@ -133,7 +135,10 @@ class Setup(SocialRegistration, View):
         self.delete_session_data(request)
         
         return HttpResponseRedirect(self.get_next(request))
-        
+
+    # DEPRECATED, kept for backward compatibility
+    generate_username_and_redirect = generate_user_and_redirect
+
     def get(self, request):
         """
         When signing a new user up - either display a setup form, or
